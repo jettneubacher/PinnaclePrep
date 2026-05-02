@@ -1,0 +1,20 @@
+.stats-page__placeholder {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.stats-page__main {
+  padding: 1.5rem 1.25rem 2.5rem;
+}
+
+.stats-sidebar__body {
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.stats-sidebar__placeholder {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0;
+}

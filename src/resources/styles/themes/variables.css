@@ -1,0 +1,8 @@
+/**
+ * Layout tokens (not swapped by theme).
+ */
+:root {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --header-height: 3.25rem;
+}

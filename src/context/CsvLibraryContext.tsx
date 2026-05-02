@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { isTauri } from "@tauri-apps/api/core";
+import { isCsvFile } from "../lib/csvFileFilter";
 import {
   deleteCSV as deleteStoredCsvFile,
   listCSVs,
@@ -24,6 +25,8 @@ export type CsvLibraryContextValue = {
   /** Re-load `metadata.json` from app data (after deletes, external edits, etc.). */
   refresh: () => Promise<void>;
   uploadCsvFile: (file: File) => Promise<void>;
+  /** Saves each CSV and refreshes once at the end. Non-CSV files are skipped. */
+  uploadCsvFiles: (files: File[] | FileList) => Promise<void>;
   deleteCsv: (meta: CsvMetadata) => Promise<void>;
   renameCsv: (fileName: string, newDisplayName: string) => Promise<void>;
 };
@@ -64,6 +67,36 @@ export function CsvLibraryProvider({ children }: { children: ReactNode }) {
       try {
         const text = await file.text();
         await saveCSV(file.name, text);
+        await refresh();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        throw e;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
+
+  const uploadCsvFiles = useCallback(
+    async (files: File[] | FileList) => {
+      if (!isTauri()) return;
+      const list = Array.from(files);
+      const allowed = list.filter(isCsvFile);
+      if (allowed.length === 0) {
+        if (list.length > 0) {
+          setError("Only .csv files can be uploaded.");
+        }
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        for (const file of allowed) {
+          const text = await file.text();
+          await saveCSV(file.name, text);
+        }
         await refresh();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -123,10 +156,21 @@ export function CsvLibraryProvider({ children }: { children: ReactNode }) {
       busy,
       refresh,
       uploadCsvFile,
+      uploadCsvFiles,
       deleteCsv,
       renameCsv,
     }),
-    [rows, loading, error, busy, refresh, uploadCsvFile, deleteCsv, renameCsv],
+    [
+      rows,
+      loading,
+      error,
+      busy,
+      refresh,
+      uploadCsvFile,
+      uploadCsvFiles,
+      deleteCsv,
+      renameCsv,
+    ],
   );
 
   return (

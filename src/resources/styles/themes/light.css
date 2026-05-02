@@ -1,0 +1,21 @@
+[data-theme="light"] {
+  --page-bg: #f9f7f4;
+  --header-bg: #f0eeea;
+  --sidebar-bg: #e8e6e1;
+  --surface-raised: #f7f7f8;
+  --upload-dropzone-bg: #e4e4e8;
+  --upload-dropzone-border: #8f8f9a;
+  --surface-border: #e8e8ea;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555;
+  --text-muted: #666;
+  --text-error: #b00020;
+  --accent: #2563eb;
+  --accent-border: #1d4ed8;
+  --banner-bg: #f0f4ff;
+  --banner-border: #c5d4fc;
+  --danger-text: #9b1c2e;
+  --danger-border: #e8a0a8;
+  --header-border: #e5e2dc;
+  --nav-active-bg: #ebe8e3;
+}

@@ -1,0 +1,21 @@
+[data-theme="dark"] {
+  --page-bg: #141414;
+  --header-bg: #1c1c1c;
+  --sidebar-bg: #181818;
+  --surface-raised: #1f1f1f;
+  --upload-dropzone-bg: #252525;
+  --upload-dropzone-border: #5a5a5a;
+  --surface-border: #333;
+  --text-primary: #f4f2ef;
+  --text-secondary: #b5b3af;
+  --text-muted: #8a8884;
+  --text-error: #ff8a80;
+  --accent: #60a5fa;
+  --accent-border: #3b82f6;
+  --banner-bg: #1a2332;
+  --banner-border: #3d4f6f;
+  --danger-text: #fca5a5;
+  --danger-border: #7f1d1d;
+  --header-border: #2a2a2a;
+  --nav-active-bg: #2a2826;
+}

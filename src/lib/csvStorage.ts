@@ -3,7 +3,7 @@
  *
  * - readMetadata — Load `metadata.json` as an array (empty if missing/invalid).
  * - writeMetadata — Replace `metadata.json` with the given array.
- * - saveCSV — Write a CSV under `csvs/` and append or refresh its metadata row.
+ * - saveCSV — Write a CSV under `csvs/` with a unique disk name (`name(2).csv`, `name(3).csv`, … if `name` is taken; `name(2)(2).csv` if `name(2).csv` is taken); appends metadata with original name as `displayName`.
  * - listCSVs — Return all metadata entries (display name, disk name, upload time).
  * - readCSV — Read the raw text of one stored file by disk name.
  * - deleteCSV — Remove a file from `csvs/` (if present) and always drop its metadata row.
@@ -60,6 +60,44 @@ async function ensureCsvDir(): Promise<void> {
   await mkdir(CSV_DIR, { baseDir: APP_DATA, recursive: true });
 }
 
+function splitStemExt(fileName: string): { stem: string; ext: string } {
+  const i = fileName.lastIndexOf(".");
+  if (i <= 0 || i >= fileName.length - 1) {
+    return { stem: fileName, ext: "" };
+  }
+  return { stem: fileName.slice(0, i), ext: fileName.slice(i) };
+}
+
+async function isDiskFileNameTaken(fileName: string): Promise<boolean> {
+  assertBasename(fileName);
+  if (await exists(csvRelativePath(fileName), { baseDir: APP_DATA })) {
+    return true;
+  }
+  const meta = await readMetadata();
+  return meta.some((m) => m.fileName === fileName);
+}
+
+/**
+ * If `desired` is free, use it. Otherwise try `stem(2)ext`, `stem(3)ext`, …
+ * (`stem`/`ext` from the full uploaded name, so `foo(2).csv` → `foo(2)(2).csv`, …).
+ */
+async function allocateUniqueDiskFileName(desired: string): Promise<string> {
+  assertBasename(desired);
+  if (!(await isDiskFileNameTaken(desired))) {
+    return desired;
+  }
+  const { stem, ext } = splitStemExt(desired);
+  let n = 2;
+  for (;;) {
+    const candidate = `${stem}(${n})${ext}`;
+    assertBasename(candidate);
+    if (!(await isDiskFileNameTaken(candidate))) {
+      return candidate;
+    }
+    n += 1;
+  }
+}
+
 function parseMetadataJson(raw: string): CsvMetadata[] {
   let data: unknown;
   try {
@@ -112,16 +150,16 @@ export async function writeMetadata(entries: CsvMetadata[]): Promise<void> {
 export async function saveCSV(fileName: string, content: string): Promise<void> {
   assertBasename(fileName);
   await ensureCsvDir();
-  await writeTextFile(csvRelativePath(fileName), content, { baseDir: APP_DATA });
+  const diskName = await allocateUniqueDiskFileName(fileName);
+  await writeTextFile(csvRelativePath(diskName), content, { baseDir: APP_DATA });
 
   const meta = await readMetadata();
-  const without = meta.filter((m) => m.fileName !== fileName);
-  without.push({
-    fileName,
+  meta.push({
+    fileName: diskName,
     displayName: fileName,
     uploadedAt: new Date().toISOString(),
   });
-  await writeMetadata(without);
+  await writeMetadata(meta);
 }
 
 export async function listCSVs(): Promise<CsvMetadata[]> {

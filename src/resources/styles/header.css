@@ -1,0 +1,66 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: var(--header-height);
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--header-border);
+  background-color: var(--header-bg);
+}
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-header__link {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-header__link:hover {
+  color: var(--text-primary);
+  background-color: var(--nav-active-bg);
+}
+
+.app-header__link--active {
+  color: var(--text-primary);
+  background-color: var(--nav-active-bg);
+}
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-header__theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-header__theme-btn:hover {
+  border-color: var(--text-muted);
+}
+
+.app-header__theme-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
