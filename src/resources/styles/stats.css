@@ -2,19 +2,110 @@
   font-size: 1rem;
   color: var(--text-secondary);
   margin: 0;
+  max-width: 28rem;
+  line-height: 1.5;
 }
 
 .stats-page__main {
   padding: 1.5rem 1.25rem 2.5rem;
+  min-width: 0;
 }
 
-.stats-sidebar__body {
-  padding: 0.5rem 0.75rem 0.75rem;
+.stats-sidebar__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0 0 0.65rem;
+  flex-shrink: 0;
+  width: 100%;
 }
 
-.stats-sidebar__placeholder {
+.stats-sidebar__bulk {
   font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--text-secondary);
+}
+
+.stats-sidebar__calculate {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.stats-csv-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
   margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+  text-align: left;
+}
+
+.stats-csv-item:hover {
+  border-color: var(--text-muted);
+}
+
+.stats-csv-item:has(.stats-csv-item__check:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+}
+
+.stats-csv-item__check {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.stats-csv-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.stats-page__results-title {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 0 0 0.75rem;
+  color: var(--text-primary);
+}
+
+.stats-page__results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 36rem;
+}
+
+.stats-page__results-item {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.stats-page__results-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.stats-page__results-file {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+  word-break: break-all;
 }

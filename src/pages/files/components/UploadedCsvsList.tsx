@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { useCsvLibrary } from "../../../context/CsvLibraryContext";
-import { formatUploadedEst } from "../../../lib/formatUploadedEst";
+import { formatUploadDateTimeEst } from "../../../lib/formatUploadedEst";
 import type { CsvMetadata } from "../../../lib/csvStorage";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
@@ -117,7 +117,7 @@ export default function UploadedCsvsList() {
                   <>
                     <span className="csv-row__title">{r.displayName}</span>
                     <span className="csv-row__meta">
-                      {formatUploadedEst(r.uploadedAt)} ·{" "}
+                      {formatUploadDateTimeEst(r.uploadedAt)} ·{" "}
                       <span className="csv-row__filename" title="Name on disk">
                         {r.fileName}
                       </span>

@@ -5,7 +5,7 @@ import Sidebar from "../../components/Sidebar";
 import { useCsvData } from "../../context/CsvDataContext";
 import { useCsvLibrary } from "../../context/CsvLibraryContext";
 import { DataPageProvider, useDataPage } from "../../context/DataPageContext";
-import { formatUploadedEst } from "../../lib/formatUploadedEst";
+import { formatUploadDate } from "../../lib/formatUploadedEst";
 import type { CsvMetadata } from "../../lib/csvStorage";
 import DataCsvTable from "./DataCsvTable";
 
@@ -136,7 +136,7 @@ function DataPageInner() {
                         {r.fileName}
                       </span>
                       <span className="data-csv-item__date">
-                        {formatUploadedEst(r.uploadedAt)}
+                        {formatUploadDate(r.uploadedAt)}
                       </span>
                     </button>
                   </li>
