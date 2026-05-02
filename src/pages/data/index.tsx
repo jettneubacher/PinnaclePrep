@@ -4,10 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import Sidebar from "../../components/Sidebar";
 import { useCsvData } from "../../context/CsvDataContext";
 import { useCsvLibrary } from "../../context/CsvLibraryContext";
-import {
-  DataSelectionProvider,
-  useDataSelection,
-} from "../../context/DataSelectionContext";
+import { DataPageProvider, useDataPage } from "../../context/DataPageContext";
 import { formatUploadedEst } from "../../lib/formatUploadedEst";
 import type { CsvMetadata } from "../../lib/csvStorage";
 import DataCsvTable from "./DataCsvTable";
@@ -25,7 +22,7 @@ function filterRows(rows: CsvMetadata[], query: string): CsvMetadata[] {
 function DataPageInner() {
   const { rows, loading, busy } = useCsvLibrary();
   const { datasets, loadingByFile, errorsByFile } = useCsvData();
-  const { selectedFileName, setSelectedFileName } = useDataSelection();
+  const { selectedFileName, setSelectedFileName } = useDataPage();
   const [search, setSearch] = useState("");
   const inTauri = isTauri();
 
@@ -204,8 +201,8 @@ function DataPageInner() {
 
 export default function DataPage() {
   return (
-    <DataSelectionProvider>
+    <DataPageProvider>
       <DataPageInner />
-    </DataSelectionProvider>
+    </DataPageProvider>
   );
 }
