@@ -55,9 +55,12 @@
 
 Releases are created **manually** from GitHub Actions; repo versions in `package.json` / `tauri.conf.json` / `Cargo.toml` are **not** auto-bumped.
 
-1. Merge what you want shipped into the default branch (e.g. `main`).
+Only **allowlisted GitHub accounts** can run the release workflow (see the `check-allowed-actor` job in `.github/workflows/release-mac-dmg.yml`). Anyone else’s run fails immediately.
+
+1. Push or merge the commit you want to ship to a branch (often `main`).
 2. Go to **Actions** → **Release macOS DMG** → **Run workflow**.
-3. Enter **version** as semver **without** a `v` (e.g. `1.2.0`). The workflow creates tag **`v1.2.0`**, a GitHub Release, and attaches the **DMG** plus auto-generated release notes.
+3. Open the **“Use workflow from”** dropdown and pick the **branch or tag** to build from (that ref is checked out; the tag and release point at that commit). The workflow file must exist on the ref you choose.
+4. Enter **version** as semver **without** a `v` (e.g. `1.2.0`). The workflow creates tag **`v1.2.0`**, a GitHub Release, and attaches the **DMG** plus auto-generated release notes.
 
 To ship again, run the workflow again with a **new** version (tags must be unique).
 

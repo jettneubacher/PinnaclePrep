@@ -1,6 +1,13 @@
-# Manual run: Actions → this workflow → Run workflow → enter version (e.g. 1.2.0).
-# Creates tag v<version> at the current default-branch commit, GitHub Release with fixed title, DMG attached.
-# Does not modify package.json / tauri.conf / Cargo.toml versions.
+# Manual run: Actions → Release macOS DMG → Run workflow.
+#
+# Branch: use the "Use workflow from" dropdown (branch or tag) — that ref is
+# checked out and is what gets tagged / released. The workflow file must exist on that ref.
+#
+# Access: only GitHub usernames listed in check-allowed-actor are allowed to run this
+# (others get an immediate failed job). Adjust the allowlist in that job as needed.
+#
+# Creates tag v<version> at the selected ref, GitHub Release with fixed title, DMG attached.
+# Does not modify package.json / tauri.conf.json / Cargo.toml versions.
 
 name: Release macOS DMG
 
@@ -17,7 +24,28 @@ env:
   RELEASE_TITLE: Pinnacle Prep Stats (mac)
 
 jobs:
+  check-allowed-actor:
+    name: Allowed runner only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify GitHub user
+        run: |
+          # Exact GitHub login(s) allowed to run this workflow (add more lines as needed).
+          allowed_users=(
+            jettneubacher
+          )
+          actor="${{ github.actor }}"
+          for u in "${allowed_users[@]}"; do
+            if [ "$u" = "$actor" ]; then
+              echo "Allowed: $actor"
+              exit 0
+            fi
+          done
+          echo "::error::Only allowlisted users may run this workflow (you are: $actor)."
+          exit 1
+
   build-and-release:
+    needs: check-allowed-actor
     runs-on: macos-latest
     permissions:
       contents: write
