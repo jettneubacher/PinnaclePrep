@@ -56,11 +56,94 @@ function scrollableAncestors(start: HTMLElement | null): HTMLElement[] {
   return out;
 }
 
-type CellPopover = {
+/** Match `.data-cell-popover` max-width / max-height for placement math. */
+function popoverMaxSize(): { w: number; h: number } {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  return {
+    w: Math.min(28 * 16, vw - 24),
+    h: Math.min(vh * 0.4, 18 * 16),
+  };
+}
+
+const VIEW_MARGIN = 16;
+const POPOVER_GAP = 6;
+/** Viewport px: cell considered “near” bottom → open popover above. */
+const NEAR_BOTTOM_PX = 100;
+/** Viewport px: cell considered “near” left/right edge → align popover that way. */
+const NEAR_EDGE_PX = 80;
+
+type PopoverPlacementReady =
+  | { hAlign: "center"; left: number; top: number; transform: string }
+  | { hAlign: "left"; left: number; top: number; transform: string }
+  | { hAlign: "right"; left: number; top: number; transform: string };
+
+/** One layout frame: natural-width measure off-screen, then `left = cellRight - width`. */
+type CellPopoverMeasureRight = {
+  status: "measure-right";
   text: string;
-  anchorX: number;
-  anchorTop: number;
+  top: number;
+  transform: string;
+  cellRight: number;
 };
+
+type CellPopoverReady = { status: "ready"; text: string } & PopoverPlacementReady;
+
+type CellPopover = CellPopoverMeasureRight | CellPopoverReady;
+
+/**
+ * Vertical and horizontal rules are independent.
+ * Near-right uses a measure pass so width is content-sized, then right edge is pinned to the cell.
+ */
+function placementFromRect(rect: DOMRect):
+  | { kind: "measure-right"; top: number; transform: string; cellRight: number }
+  | { kind: "ready"; placement: PopoverPlacementReady } {
+  const { h: estH } = popoverMaxSize();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const m = VIEW_MARGIN;
+
+  const nearBottom =
+    vh - rect.bottom < NEAR_BOTTOM_PX ||
+    rect.bottom + POPOVER_GAP + estH > vh - m;
+
+  const nearRight = rect.right > vw - NEAR_EDGE_PX;
+  const nearLeft = rect.left < NEAR_EDGE_PX;
+
+  const top = nearBottom ? rect.top - POPOVER_GAP : rect.bottom + POPOVER_GAP;
+  const ty = nearBottom ? "-100%" : "0";
+
+  if (nearRight && !nearLeft) {
+    return {
+      kind: "measure-right",
+      top,
+      transform: `translate(0, ${ty})`,
+      cellRight: rect.right,
+    };
+  }
+  if (nearLeft && !nearRight) {
+    return {
+      kind: "ready",
+      placement: {
+        hAlign: "left",
+        left: rect.left,
+        top,
+        transform: `translate(0, ${ty})`,
+      },
+    };
+  }
+
+  const cx = rect.left + rect.width / 2;
+  return {
+    kind: "ready",
+    placement: {
+      hAlign: "center",
+      left: cx,
+      top,
+      transform: `translate(-50%, ${ty})`,
+    },
+  };
+}
 
 export default function DataCsvTable({ dataset }: { dataset: CsvDataset }) {
   const { columnWidthsByFile, setColumnWidthsForFile } = useDataPage();
@@ -69,6 +152,7 @@ export default function DataCsvTable({ dataset }: { dataset: CsvDataset }) {
   const persistedForFile = columnWidthsByFile[dataset.fileName];
   const [widths, setWidths] = useState<Record<string, number>>({});
   const [popover, setPopover] = useState<CellPopover | null>(null);
+  const popoverMeasureRef = useRef<HTMLDivElement | null>(null);
   const tableWrapRef = useRef<HTMLDivElement>(null);
   const fileNameRef = useRef(dataset.fileName);
   fileNameRef.current = dataset.fileName;
@@ -134,12 +218,24 @@ export default function DataCsvTable({ dataset }: { dataset: CsvDataset }) {
           setPopover(null);
           return;
         }
-        const rect = el.getBoundingClientRect();
-        setPopover({
-          text,
-          anchorX: rect.left + rect.width / 2,
-          anchorTop: rect.bottom,
-        });
+        const td = el.closest("td");
+        const rect = td?.getBoundingClientRect() ?? el.getBoundingClientRect();
+        const p = placementFromRect(rect);
+        setPopover(
+          p.kind === "measure-right"
+            ? {
+                status: "measure-right",
+                text,
+                top: p.top,
+                transform: p.transform,
+                cellRight: p.cellRight,
+              }
+            : {
+                status: "ready",
+                text,
+                ...p.placement,
+              },
+        );
       });
     },
     [],
@@ -148,6 +244,22 @@ export default function DataCsvTable({ dataset }: { dataset: CsvDataset }) {
   const onCellMouseLeave = useCallback(() => {
     setPopover(null);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!popover || popover.status !== "measure-right") return;
+    const node = popoverMeasureRef.current;
+    if (!node) return;
+    const w = node.getBoundingClientRect().width;
+    const left = Math.max(VIEW_MARGIN, popover.cellRight - w);
+    setPopover({
+      status: "ready",
+      text: popover.text,
+      hAlign: "right",
+      left,
+      top: popover.top,
+      transform: popover.transform,
+    });
+  }, [popover]);
 
   useLayoutEffect(() => {
     if (!popover) return;
@@ -219,15 +331,34 @@ export default function DataCsvTable({ dataset }: { dataset: CsvDataset }) {
       </table>
       {popover != null
         ? createPortal(
-            <div
-              className="data-cell-popover"
-              style={{
-                left: popover.anchorX,
-                top: popover.anchorTop + 6,
-              }}
-            >
-              {popover.text}
-            </div>,
+            popover.status === "measure-right" ? (
+              <div
+                ref={popoverMeasureRef}
+                className="data-cell-popover"
+                aria-hidden
+                style={{
+                  position: "fixed",
+                  left: -10000,
+                  top: 0,
+                  visibility: "hidden",
+                  pointerEvents: "none",
+                }}
+              >
+                {popover.text}
+              </div>
+            ) : (
+              <div
+                className="data-cell-popover"
+                style={{
+                  top: popover.top,
+                  left: popover.left,
+                  right: "auto",
+                  transform: popover.transform,
+                }}
+              >
+                {popover.text}
+              </div>
+            ),
             document.body,
           )
         : null}
