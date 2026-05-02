@@ -2,19 +2,67 @@
 
 ## Downloading
 
-TODO: once compiled and released on gh using a workflow, add isntructions for access here. include mention about initial open on mac (unsigned app problem)
+TODO: once compiled and released on GitHub using a workflow, add instructions for access here. Include mention of the initial open on macOS (unsigned app / Gatekeeper).
 
-## App Usage
+## App usage
 
-TODO: once app is done, add simple user instructions here
+1. **Files** — Upload CSVs exported from your database. They are saved under the app data directory (forever) and listed here; you can rename or delete entries from this screen.
+2. **Data** — Pick a CSV from the sidebar to inspect rows in a table.
+3. **Stats** — Select one or more CSVs, then click **Calculate**. Results appear in the main panel; the list of files used and the numeric summaries are a **snapshot** from that run (they do not change if you later delete or rename those files in the library). To refresh numbers against the current library, run **Calculate** again with the desired selection.
 
 ## Dev testing
 
-TODO: add the tauri instructions for install and setup, bun install and setup, git clone, bun install, bun run tauri dev, etc. etc.
+1. **Prerequisites** — [Bun](https://bun.sh) and the usual Rust / Xcode tooling for Tauri 2 on your platform.
+2. **Clone** the repo and install JS dependencies:
+
+   ```bash
+   bun install
+   ```
+
+3. **Run the app** (Vite + Tauri, hot reload):
+
+   ```bash
+   bun run tauri dev
+   ```
+
+4. **Web-only check** (no native file APIs; limited functionality):
+
+   ```bash
+   bun run dev
+   ```
+
+5. **Production web build** (TypeScript + Vite bundle only):
+
+   ```bash
+   bun run build
+   ```
+
+6. **Desktop release build** (produces the installable artifact for your OS):
+
+   ```bash
+   bun run tauri build
+   ```
 
 # About the app
 
-Tauri + React TS + Bun + Vite
+Tauri + React + TypeScript + Bun + Vite. Application logic lives in the frontend; CSV files are stored as raw files plus a JSON index (see **App data layout**).
+
+## Calculations
+
+Exported CSVs are parsed once in **`CsvDataContext`**: each library file can be loaded into memory as a **`CsvDataset`** (`rows` as `Record<string, unknown>[]` from Papa Parse). The **stats pipeline does not parse CSVs again**; it converts those rows to string records and merges files that qualify.
+
+**Flow:**
+
+1. User selects files on the Stats page; **`StatsPageContext`** calls **`buildCsvInputsFromDatasets`** with the current **`datasets`** map and the chosen file order.
+2. **`runStats`** in **`src/calculations/pipeline.ts`** runs each **`StatConfig`** from **`STATS`** (`src/calculations/stats.ts`):
+   - A file is used only if its rows include **every** header listed in that stat’s **`requiredFields`**.
+   - Rows are filtered so **`requiredNonEmptyFields`** (or all `requiredFields` if unset) are non-empty after trim.
+   - Qualifying rows from all contributing files are **concatenated** and passed to **`calculate(mergedRows)`**.
+3. Each run produces a **`StatRunResult`** with **`statId`**, **`label`**, **`result`** (e.g. a display string), and **`contributingFiles`**. The UI maps findings by **`statId`** so multiple stats stay organized.
+
+**`src/calculations/fields.ts`** defines **`FIELDS`**: internal keys (e.g. `LAST_NAME`) mapped to the **exact** column titles in the CSV (e.g. `"LAST NAME"`). All stats and row logic should use **`FIELDS`** so renames to human-readable headers stay in one place.
+
+**Defining a statistic:** add any new headers to **`FIELDS`**, implement the math in a focused module (e.g. **`avgTotalImprovement.ts`**), then register a **`StatConfig`** in **`STATS`** with the right **`requiredFields`** / **`requiredNonEmptyFields`** (use the narrower non-empty list when columns like **`BASELINE`** are blank on most rows). Heavy parsing or type coercion belongs inside **`calculate`** or the helper module, not in the pipeline.
 
 ## App data layout
 
