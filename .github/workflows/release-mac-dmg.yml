@@ -1,0 +1,50 @@
+# Manual run: Actions → this workflow → Run workflow → enter version (e.g. 1.2.0).
+# Creates tag v<version> at the current default-branch commit, GitHub Release with fixed title, DMG attached.
+# Does not modify package.json / tauri.conf / Cargo.toml versions.
+
+name: Release macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver only, no "v" (e.g. 1.2.0)'
+        required: true
+        type: string
+
+env:
+  # Shown as the GitHub Release title for every run (tag still carries the version).
+  RELEASE_TITLE: Pinnacle Prep Stats (mac)
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build DMG
+        run: bun run tauri build --ci -b dmg --no-sign
+
+      - name: Create GitHub Release and upload DMG
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: ${{ env.RELEASE_TITLE }}
+          files: src-tauri/target/release/bundle/dmg/*.dmg
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

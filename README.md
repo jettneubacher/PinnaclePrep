@@ -2,7 +2,9 @@
 
 ## Downloading
 
-TODO: once compiled and released on GitHub using a workflow, add instructions for access here. Include mention of the initial open on macOS (unsigned app / Gatekeeper).
+1. Open the repo’s **Releases** page on GitHub and download the latest **`.dmg`** (asset attached to the release).
+2. Open the DMG, drag **ppstats** (or the app name shown) into **Applications**.
+3. **First launch (unsigned build):** macOS may block the app. Right-click the app in **Applications** → **Open**, then confirm **Open**; or use **System Settings → Privacy & Security → Open Anyway** after a failed launch.
 
 ## App usage
 
@@ -37,11 +39,35 @@ TODO: once compiled and released on GitHub using a workflow, add instructions fo
    bun run build
    ```
 
-6. **Desktop release build** (produces the installable artifact for your OS):
+6. **Desktop release build** (all default bundles for the current OS):
 
    ```bash
    bun run tauri build
    ```
+
+7. **macOS DMG only, locally** (matches CI: unsigned, DMG artifact under `src-tauri/target/release/bundle/dmg/`):
+
+   ```bash
+   ./buildmac.sh
+   ```
+
+## Releasing (maintainers)
+
+Releases are created **manually** from GitHub Actions; repo versions in `package.json` / `tauri.conf.json` / `Cargo.toml` are **not** auto-bumped.
+
+1. Merge what you want shipped into the default branch (e.g. `main`).
+2. Go to **Actions** → **Release macOS DMG** → **Run workflow**.
+3. Enter **version** as semver **without** a `v` (e.g. `1.2.0`). The workflow creates tag **`v1.2.0`**, a GitHub Release, and attaches the **DMG** plus auto-generated release notes.
+
+To ship again, run the workflow again with a **new** version (tags must be unique).
+
+## Updating (users) — keep your data
+
+Your CSV library and app data live in the **app data directory** (on macOS, typically under **`~/Library/Application Support/`** in a folder derived from the bundle id **`com.pinnacleprep.ppstats`**). They are **not** inside the `.app` bundle.
+
+**Safe update:** Download the new DMG, then either drag the new app into **Applications** and choose **Replace**, or delete only the old app from **Applications** and copy the new one in. **Do not** delete that **Application Support** data folder unless you intend to wipe all saved CSVs.
+
+**Avoid:** “Uninstall” tools that remove support files for the app unless you want a clean slate.
 
 # About the app
 

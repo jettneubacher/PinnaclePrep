@@ -28,6 +28,8 @@ The app uses no database. CSV files are stored as raw files in the Tauri app dat
 
 ## Packaging & Distribution
 
+This app is packaged for macOS as an **unsigned DMG** and published via **GitHub Releases** using the **Release macOS DMG** workflow (`workflow_dispatch`, version input → tag `v…`, fixed release title in YAML). Local parity: `./buildmac.sh`.
+
 This app will be packaged for macOS and distributed via GitHub Releases as a `.dmg` file. All code changes should be made with this end goal in mind:
 
 - Do not rely on any local development tooling or environment-specific paths at runtime
