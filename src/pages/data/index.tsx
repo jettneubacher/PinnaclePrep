@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import Sidebar from "../../components/Sidebar";
 import { useCsvData } from "../../context/CsvDataContext";
 import { useCsvLibrary } from "../../context/CsvLibraryContext";
-import { DataPageProvider, useDataPage } from "../../context/DataPageContext";
+import { useDataPage } from "../../context/DataPageContext";
 import { formatUploadDate } from "../../lib/formatUploadedEst";
 import type { CsvMetadata } from "../../lib/csvStorage";
 import DataCsvTable from "./DataCsvTable";
@@ -200,9 +200,5 @@ function DataPageInner() {
 }
 
 export default function DataPage() {
-  return (
-    <DataPageProvider>
-      <DataPageInner />
-    </DataPageProvider>
-  );
+  return <DataPageInner />;
 }

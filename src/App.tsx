@@ -6,6 +6,8 @@ import {
 } from "react-router-dom";
 import { CsvDataProvider } from "./context/CsvDataContext";
 import { CsvLibraryProvider } from "./context/CsvLibraryContext";
+import { DataPageProvider } from "./context/DataPageContext";
+import { StatsPageProvider } from "./context/StatsPageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import Header from "./components/Header";
 import DataPage from "./pages/data";
@@ -41,9 +43,13 @@ export default function App() {
     <ThemeProvider>
       <CsvLibraryProvider>
         <CsvDataProvider>
-          <div className="app-mount">
-            <RouterProvider router={router} />
-          </div>
+          <DataPageProvider>
+            <StatsPageProvider>
+              <div className="app-mount">
+                <RouterProvider router={router} />
+              </div>
+            </StatsPageProvider>
+          </DataPageProvider>
         </CsvDataProvider>
       </CsvLibraryProvider>
     </ThemeProvider>

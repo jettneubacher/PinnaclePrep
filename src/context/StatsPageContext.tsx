@@ -7,6 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  STATS,
+  buildCsvInputsFromDatasets,
+  runStats,
+  type StatRunResult,
+} from "../calculations/pipeline";
+import { useCsvData } from "./CsvDataContext";
 import { useCsvLibrary } from "./CsvLibraryContext";
 
 export type StatsCalculatedEntry = {
@@ -19,12 +26,19 @@ export type StatsPageContextValue = {
   selectedFileNames: ReadonlySet<string>;
   selectionCount: number;
   toggleFile: (fileName: string) => void;
-  /** Add every name in the list to the selection. */
   selectAllInList: (fileNames: string[]) => void;
-  /** Remove every name in the list from the selection. */
   deselectAllInList: (fileNames: string[]) => void;
-  /** Snapshot from the most recent successful Calculate (library metadata at that moment). */
+  /**
+   * Files recorded at the last successful Calculate. Immutable snapshot: not
+   * trimmed or cleared when those files disappear from the library or are renamed.
+   */
   lastCalculated: StatsCalculatedEntry[] | null;
+  /**
+   * One entry per stat job from the last Calculate, keyed by `statId`.
+   * Null until the first run. Same snapshot rules as `lastCalculated` (library
+   * changes do not clear this).
+   */
+  statResultsById: ReadonlyMap<string, StatRunResult> | null;
   runCalculate: () => void;
 };
 
@@ -32,11 +46,17 @@ const StatsPageContext = createContext<StatsPageContextValue | null>(null);
 
 export function StatsPageProvider({ children }: { children: ReactNode }) {
   const { rows } = useCsvLibrary();
+  const { datasets } = useCsvData();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [lastCalculated, setLastCalculated] = useState<
     StatsCalculatedEntry[] | null
   >(null);
+  const [statResultsById, setStatResultsById] = useState<ReadonlyMap<
+    string,
+    StatRunResult
+  > | null>(null);
 
+  /** Drop removed files from sidebar selection only; last run snapshot is untouched. */
   useEffect(() => {
     const wanted = new Set(rows.map((r) => r.fileName));
     setSelected((prev) => {
@@ -48,13 +68,28 @@ export function StatsPageProvider({ children }: { children: ReactNode }) {
       }
       return changed ? next : prev;
     });
-    setLastCalculated((prev) => {
-      if (!prev) return null;
-      const next = prev.filter((e) => wanted.has(e.fileName));
-      if (next.length === prev.length) return prev;
-      return next.length === 0 ? null : next;
-    });
   }, [rows]);
+
+  const runCalculate = useCallback(() => {
+    const map = new Map(rows.map((r) => [r.fileName, r]));
+    const list: StatsCalculatedEntry[] = [];
+    const orderedNames: string[] = [];
+    for (const f of selected) {
+      const r = map.get(f);
+      if (r) {
+        list.push({ fileName: r.fileName, displayName: r.displayName });
+        orderedNames.push(f);
+      }
+    }
+    if (list.length === 0) {
+      return;
+    }
+
+    const inputs = buildCsvInputsFromDatasets(orderedNames, datasets);
+    const results = runStats(inputs, STATS);
+    setStatResultsById(new Map(results.map((r) => [r.statId, r])));
+    setLastCalculated(list);
+  }, [rows, selected, datasets]);
 
   const toggleFile = useCallback((fileName: string) => {
     setSelected((prev) => {
@@ -83,20 +118,6 @@ export function StatsPageProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const runCalculate = useCallback(() => {
-    const map = new Map(rows.map((r) => [r.fileName, r]));
-    const list: StatsCalculatedEntry[] = [];
-    for (const f of selected) {
-      const r = map.get(f);
-      if (r) {
-        list.push({ fileName: r.fileName, displayName: r.displayName });
-      }
-    }
-    if (list.length > 0) {
-      setLastCalculated(list);
-    }
-  }, [rows, selected]);
-
   const value = useMemo(
     (): StatsPageContextValue => ({
       selectedFileNames: selected,
@@ -105,6 +126,7 @@ export function StatsPageProvider({ children }: { children: ReactNode }) {
       selectAllInList,
       deselectAllInList,
       lastCalculated,
+      statResultsById,
       runCalculate,
     }),
     [
@@ -113,6 +135,7 @@ export function StatsPageProvider({ children }: { children: ReactNode }) {
       selectAllInList,
       deselectAllInList,
       lastCalculated,
+      statResultsById,
       runCalculate,
     ],
   );

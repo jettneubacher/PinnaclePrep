@@ -2,8 +2,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import Sidebar from "../../components/Sidebar";
+import { STATS } from "../../calculations/stats";
 import { useCsvLibrary } from "../../context/CsvLibraryContext";
-import { StatsPageProvider, useStatsPage } from "../../context/StatsPageContext";
+import { useStatsPage } from "../../context/StatsPageContext";
 import { formatUploadDate } from "../../lib/formatUploadedEst";
 import type { CsvMetadata } from "../../lib/csvStorage";
 
@@ -26,6 +27,7 @@ function StatsPageInner() {
     selectAllInList,
     deselectAllInList,
     lastCalculated,
+    statResultsById,
     runCalculate,
   } = useStatsPage();
   const [search, setSearch] = useState("");
@@ -166,7 +168,7 @@ function StatsPageInner() {
           <p className="stats-page__placeholder">
             Run with <code>bun run tauri dev</code> to use statistics.
           </p>
-        ) : lastCalculated == null ? (
+        ) : statResultsById == null || lastCalculated == null ? (
           <p className="stats-page__placeholder">
             Select CSV file(s) and click &quot;Calculate&quot; to generate
             statistics.
@@ -189,6 +191,39 @@ function StatsPageInner() {
                 </li>
               ))}
             </ul>
+            <h3 className="stats-page__results-title stats-page__results-title--sub">
+              Findings
+            </h3>
+            <dl className="stats-page__findings">
+              {STATS.map((def) => {
+                const run = statResultsById.get(def.id);
+                const text =
+                  run?.result == null
+                    ? run?.contributingFiles.length === 0
+                      ? "No rows contributed (missing columns, empty required cells, or CSVs still loading)."
+                      : "No result."
+                    : String(run.result);
+                return (
+                  <div key={def.id} className="stats-page__finding">
+                    <dt className="stats-page__finding-id">{def.id}</dt>
+                    <dd className="stats-page__finding-body">
+                      <span className="stats-page__finding-label">
+                        {run?.label ?? def.label}
+                      </span>
+                      <p className="stats-page__finding-text">{text}</p>
+                      {run && run.contributingFiles.length > 0 ? (
+                        <p
+                          className="stats-page__finding-files"
+                          title={run.contributingFiles.join(", ")}
+                        >
+                          From: {run.contributingFiles.join(", ")}
+                        </p>
+                      ) : null}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
           </div>
         )}
       </main>
@@ -197,9 +232,5 @@ function StatsPageInner() {
 }
 
 export default function StatsPage() {
-  return (
-    <StatsPageProvider>
-      <StatsPageInner />
-    </StatsPageProvider>
-  );
+  return <StatsPageInner />;
 }

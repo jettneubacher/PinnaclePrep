@@ -1,4 +1,8 @@
+import type { CsvDataset } from "../context/CsvDataContext";
 import type { StatConfig } from "./stats";
+
+export { STATS } from "./stats";
+export type { StatConfig } from "./stats";
 
 export type CsvInput = {
   fileName: string;
@@ -12,6 +16,36 @@ export type StatRunResult = {
   contributingFiles: string[];
 };
 
+/** Normalize parsed rows to string cells for the stats pipeline. */
+export function rowsToStringRecords(
+  rows: Record<string, unknown>[],
+): Record<string, string>[] {
+  return rows.map((row) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(row)) {
+      out[k] = v == null ? "" : String(v);
+    }
+    return out;
+  });
+}
+
+/** Build pipeline inputs from in-memory datasets for the given file names (order preserved). */
+export function buildCsvInputsFromDatasets(
+  fileNames: string[],
+  datasets: Record<string, CsvDataset>,
+): CsvInput[] {
+  const out: CsvInput[] = [];
+  for (const fileName of fileNames) {
+    const ds = datasets[fileName];
+    if (!ds || ds.rows.length === 0) continue;
+    out.push({
+      fileName,
+      rows: rowsToStringRecords(ds.rows),
+    });
+  }
+  return out;
+}
+
 function csvHasAllColumns(
   rows: Record<string, string>[],
   requiredFields: string[],
@@ -23,10 +57,10 @@ function csvHasAllColumns(
 
 function filterRowsWithRequired(
   rows: Record<string, string>[],
-  requiredFields: string[],
+  nonEmptyFields: string[],
 ): Record<string, string>[] {
   return rows.filter((row) =>
-    requiredFields.every((f) => {
+    nonEmptyFields.every((f) => {
       const v = row[f];
       return v != null && String(v).trim() !== "";
     }),
@@ -34,8 +68,9 @@ function filterRowsWithRequired(
 }
 
 /**
- * Runs each stat against the given CSVs. For every stat, only CSVs that include
- * all required columns are considered; rows missing any required value are dropped.
+ * Runs each stat against the given CSVs. Only CSVs that include every
+ * `requiredFields` header are used. Rows are kept when all
+ * `requiredNonEmptyFields` (default: `requiredFields`) are non-empty after trim.
  * Merged rows from qualifying files are passed to `calculate`.
  */
 export function runStats(csvs: CsvInput[], stats: StatConfig[]): StatRunResult[] {
@@ -44,9 +79,11 @@ export function runStats(csvs: CsvInput[], stats: StatConfig[]): StatRunResult[]
       csvHasAllColumns(c.rows, stat.requiredFields),
     );
 
+    const nonEmpty =
+      stat.requiredNonEmptyFields ?? stat.requiredFields;
     const perFile = withColumns.map((c) => ({
       fileName: c.fileName,
-      rows: filterRowsWithRequired(c.rows, stat.requiredFields),
+      rows: filterRowsWithRequired(c.rows, nonEmpty),
     }));
 
     const contributing = perFile.filter((p) => p.rows.length > 0);
