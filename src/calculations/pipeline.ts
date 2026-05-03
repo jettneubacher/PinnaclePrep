@@ -1,5 +1,18 @@
 import type { CsvDataset } from "../context/CsvDataContext";
+import {
+  filterRowsToStudentKeys,
+  rowsToStringRecords,
+} from "./csvRows";
 import type { StatConfig } from "./stats";
+import { buildStudentTestAnalytics } from "./functions/buildContext";
+
+export { rowsToStringRecords } from "./csvRows";
+export {
+  collectGlobalStudentsFromDatasets,
+  collectStudentsFromSelectedFiles,
+  studentKeyFromRow,
+  studentLabelFromKey,
+} from "./csvRows";
 
 export { STATS } from "./stats";
 export type { StatConfig } from "./stats";
@@ -12,22 +25,27 @@ export type CsvInput = {
 export type StatRunResult = {
   statId: string;
   label: string;
-  result: number | string | null;
+  summary: string;
+  data: unknown;
   contributingFiles: string[];
 };
 
-/** Normalize parsed rows to string cells for the stats pipeline. */
-export function rowsToStringRecords(
-  rows: Record<string, unknown>[],
-): Record<string, string>[] {
-  return rows.map((row) => {
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(row)) {
-      out[k] = v == null ? "" : String(v);
-    }
-    return out;
-  });
-}
+/** Students present in merged data after last run (for filter UI). */
+export type StatsAnalyticsMeta = {
+  students: { key: string; label: string }[];
+};
+
+export type RunStatsOptions = {
+  /** Passed into prep-length when LAST SESSION is blank (Calculate click time). */
+  calculatedAt?: Date;
+  /** If set, merged rows are limited to these student keys (`last\\0first`). */
+  includeStudentKeys?: ReadonlySet<string>;
+};
+
+export type RunStatsOutput = {
+  results: StatRunResult[];
+  analyticsMeta: StatsAnalyticsMeta | null;
+};
 
 /** Build pipeline inputs from in-memory datasets for the given file names (order preserved). */
 export function buildCsvInputsFromDatasets(
@@ -67,43 +85,98 @@ function filterRowsWithRequired(
   );
 }
 
+function statMergeSignature(stat: StatConfig): string {
+  const nonEmpty = stat.requiredNonEmptyFields ?? stat.requiredFields;
+  return JSON.stringify({
+    r: [...stat.requiredFields].sort(),
+    n: [...nonEmpty].sort(),
+  });
+}
+
+function mergeForStat(csvs: CsvInput[], stat: StatConfig) {
+  const withColumns = csvs.filter((c) =>
+    csvHasAllColumns(c.rows, stat.requiredFields),
+  );
+  const nonEmpty = stat.requiredNonEmptyFields ?? stat.requiredFields;
+  const perFile = withColumns.map((c) => ({
+    fileName: c.fileName,
+    rows: filterRowsWithRequired(c.rows, nonEmpty),
+  }));
+  const contributing = perFile.filter((p) => p.rows.length > 0);
+  const contributingFiles = contributing.map((p) => p.fileName);
+  const merged = contributing.flatMap((p) => p.rows);
+  return { contributingFiles, merged };
+}
+
+function metaFromContext(
+  ctx: ReturnType<typeof buildStudentTestAnalytics>,
+): StatsAnalyticsMeta {
+  const students = ctx.rollups
+    .map((r) => ({ key: r.studentKey, label: r.studentName }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  return { students };
+}
+
 /**
- * Runs each stat against the given CSVs. Only CSVs that include every
- * `requiredFields` header are used. Rows are kept when all
- * `requiredNonEmptyFields` (default: `requiredFields`) are non-empty after trim.
- * Merged rows from qualifying files are passed to `calculate`.
+ * Runs each stat. Stats that share the same `requiredFields` /
+ * `requiredNonEmptyFields` share one merged row set and one
+ * `buildStudentTestAnalytics` pass.
  */
-export function runStats(csvs: CsvInput[], stats: StatConfig[]): StatRunResult[] {
-  return stats.map((stat) => {
-    const withColumns = csvs.filter((c) =>
-      csvHasAllColumns(c.rows, stat.requiredFields),
-    );
+export function runStats(
+  csvs: CsvInput[],
+  stats: StatConfig[],
+  options?: RunStatsOptions,
+): RunStatsOutput {
+  const calculatedAt = options?.calculatedAt ?? new Date();
+  const bySig = new Map<string, StatConfig[]>();
+  for (const stat of stats) {
+    const sig = statMergeSignature(stat);
+    const list = bySig.get(sig);
+    if (list) list.push(stat);
+    else bySig.set(sig, [stat]);
+  }
 
-    const nonEmpty =
-      stat.requiredNonEmptyFields ?? stat.requiredFields;
-    const perFile = withColumns.map((c) => ({
-      fileName: c.fileName,
-      rows: filterRowsWithRequired(c.rows, nonEmpty),
-    }));
+  const outById = new Map<string, StatRunResult>();
+  let analyticsMeta: StatsAnalyticsMeta | null = null;
 
-    const contributing = perFile.filter((p) => p.rows.length > 0);
-    const contributingFiles = contributing.map((p) => p.fileName);
-    const merged = contributing.flatMap((p) => p.rows);
+  for (const group of bySig.values()) {
+    const lead = group[0];
+    const { contributingFiles, merged: mergedAll } = mergeForStat(csvs, lead);
+    const merged =
+      options?.includeStudentKeys != null &&
+      options.includeStudentKeys.size > 0
+        ? filterRowsToStudentKeys(mergedAll, options.includeStudentKeys)
+        : mergedAll;
+    const ctx = buildStudentTestAnalytics(merged, { calculatedAt });
 
-    if (merged.length === 0) {
-      return {
-        statId: stat.id,
-        label: stat.label,
-        result: null,
-        contributingFiles: [],
-      };
+    if (analyticsMeta == null) {
+      analyticsMeta = metaFromContext(ctx);
     }
 
-    return {
-      statId: stat.id,
-      label: stat.label,
-      result: stat.calculate(merged),
-      contributingFiles,
-    };
-  });
+    for (const stat of group) {
+      if (merged.length === 0) {
+        outById.set(stat.id, {
+          statId: stat.id,
+          label: stat.label,
+          summary:
+            "No rows contributed (missing columns, empty required cells, or CSVs still loading).",
+          data: null,
+          contributingFiles,
+        });
+        continue;
+      }
+
+      const { summary, data } = stat.calculate(ctx);
+      outById.set(stat.id, {
+        statId: stat.id,
+        label: stat.label,
+        summary,
+        data,
+        contributingFiles,
+      });
+    }
+  }
+
+  const results = stats.map((s) => outById.get(s.id)!);
+  return { results, analyticsMeta };
 }

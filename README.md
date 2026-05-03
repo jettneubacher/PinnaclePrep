@@ -4,13 +4,21 @@
 
 1. Open the repo’s **Releases** page on GitHub and download the latest **`.dmg`** (asset attached to the release).
 2. Open the DMG, drag **ppstats** (or the app name shown) into **Applications**.
-3. **First launch (unsigned build):** macOS may block the app. Right-click the app in **Applications** → **Open**, then confirm **Open**; or use **System Settings → Privacy & Security → Open Anyway** after a failed launch.
+3. **First launch (unsigned build):** browsers tag the app with **quarantine**. macOS may say the app is **“damaged”** and tell you to move it to Trash—that usually means **Gatekeeper + quarantine**, not a bad file. On many Macs, **Right‑click → Open** or **System Settings → Privacy & Security → Open Anyway** (after a failed launch) is enough; on others **neither appears**, and the only reliable workaround is to clear quarantine yourself (see below). The proper long‑term fix is **Apple Developer ID signing + notarization** (not set up for this project yet).
+
+   **If the app won’t open**, open **Terminal** and run (only if you trust this release from our GitHub):
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/ppstats.app
+   ```
+
+   Then open the app from **Applications** again. Your data in Application Support is unchanged.
 
 ## App usage
 
 1. **Files** — Upload CSVs exported from your database. They are saved under the app data directory (forever) and listed here; you can rename or delete entries from this screen.
 2. **Data** — Pick a CSV from the sidebar to inspect rows in a table.
-3. **Stats** — Select one or more CSVs, then click **Calculate**. Results appear in the main panel; the list of files used and the numeric summaries are a **snapshot** from that run (they do not change if you later delete or rename those files in the library). To refresh numbers against the current library, run **Calculate** again with the desired selection.
+3. **Stats** — Which uploaded files are included and which students are included determine the merged cohort. When those inputs and parsed data permit, the stats pipeline reruns automatically and refreshes **`StatRunResult`** output for each registered job (`CALCULATIONS.md`).
 
 ## Dev testing
 
@@ -64,7 +72,7 @@ Only **allowlisted GitHub accounts** can run the release workflow (see the `chec
 
 To ship again, run the workflow again with a **new** version (tags must be unique).
 
-## Updating (users) — keep your data
+## Updating (keep your data)
 
 Your CSV library and app data live in the **app data directory** (on macOS, typically under **`~/Library/Application Support/`** in a folder derived from the bundle id **`com.pinnacleprep.ppstats`**). They are **not** inside the `.app` bundle.
 
@@ -82,16 +90,13 @@ Exported CSVs are parsed once in **`CsvDataContext`**: each library file can be 
 
 **Flow:**
 
-1. User selects files on the Stats page; **`StatsPageContext`** calls **`buildCsvInputsFromDatasets`** with the current **`datasets`** map and the chosen file order.
-2. **`runStats`** in **`src/calculations/pipeline.ts`** runs each **`StatConfig`** from **`STATS`** (`src/calculations/stats.ts`):
-   - A file is used only if its rows include **every** header listed in that stat’s **`requiredFields`**.
-   - Rows are filtered so **`requiredNonEmptyFields`** (or all `requiredFields` if unset) are non-empty after trim.
-   - Qualifying rows from all contributing files are **concatenated** and passed to **`calculate(mergedRows)`**.
-3. Each run produces a **`StatRunResult`** with **`statId`**, **`label`**, **`result`** (e.g. a display string), and **`contributingFiles`**. The UI maps findings by **`statId`** so multiple stats stay organized.
+1. **`StatsPageContext`** invokes **`runStats`** when the included CSV set, optional student subset, and loaded **`datasets`** support a full pass. **`includeStudentKeys`**, when set after merge and column/non-empty filtering, trims rows before **`buildStudentTestAnalytics`**.
+2. **`runStats`** (`src/calculations/pipeline.ts`) groups **`STATS`** (`src/calculations/stats/index.ts`) by merge signature (**`requiredFields`** + **`requiredNonEmptyFields`**), merges contributing files per group, optionally filters by student keys, builds **`StudentAnalyticsContext`** once per group, then calls each job’s **`calculate(ctx)`**.
+3. Each **`StatRunResult`** includes **`statId`**, **`label`**, **`summary`**, **`data`** (job-specific structured payload), and **`contributingFiles`**. Consumers use **`summary`** and **`data`** together (**`statId`** is the stable key).
 
-**`src/calculations/fields.ts`** defines **`FIELDS`**: internal keys (e.g. `LAST_NAME`) mapped to the **exact** column titles in the CSV (e.g. `"LAST NAME"`). All stats and row logic should use **`FIELDS`** so renames to human-readable headers stay in one place.
+**`src/calculations/fields.ts`** defines **`FIELDS`**. See **`CALCULATIONS.md`** for the full list of stat jobs, shared context rules, and how jobs relate.
 
-**Defining a statistic:** add any new headers to **`FIELDS`**, implement the math in a focused module (e.g. **`avgTotalImprovement.ts`**), then register a **`StatConfig`** in **`STATS`** with the right **`requiredFields`** / **`requiredNonEmptyFields`** (use the narrower non-empty list when columns like **`BASELINE`** are blank on most rows). Heavy parsing or type coercion belongs inside **`calculate`** or the helper module, not in the pipeline.
+**Defining a statistic:** add headers to **`FIELDS`** if needed; extend **`functions/buildContext.ts`** if new derived fields are required; add **`functions/derive*.ts`** (or a new derive file) and register in **`stats/registry.ts`**.
 
 ## App data layout
 

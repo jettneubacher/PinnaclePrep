@@ -1,6 +1,7 @@
 import { Moon, Sun } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { StatsHeaderChartTestRadios } from "./StatsHeaderChartTestRadios";
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -36,6 +37,9 @@ export default function Header() {
           Stats
         </NavLink>
       </nav>
+      <div className="app-header__center-slot">
+        <StatsHeaderChartTestRadios />
+      </div>
       <div className="app-header__actions">
         <button
           type="button"

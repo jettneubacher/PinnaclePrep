@@ -8,6 +8,12 @@
   width: 100%;
 }
 
+.with-sidebar--data-wider .sidebar:not(.sidebar--collapsed),
+.with-sidebar--stats-wider .sidebar:not(.sidebar--collapsed) {
+  width: 20.125rem;
+  max-width: min(20.125rem, 48vw);
+}
+
 .with-sidebar__main {
   flex: 1;
   min-width: 0;
@@ -78,8 +84,14 @@
   flex-direction: column;
 }
 
-.sidebar--collapsed .sidebar__content {
-  visibility: hidden;
-  pointer-events: none;
-  user-select: none;
+.sidebar--end {
+  border-right: none;
+  border-left: 1px solid var(--header-border);
 }
+
+.sidebar__content-inner--scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+

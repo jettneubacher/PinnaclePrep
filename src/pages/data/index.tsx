@@ -62,7 +62,7 @@ function DataPageInner() {
   }, [filtered, selectedFileName, setSelectedFileName]);
 
   return (
-    <div className="with-sidebar">
+    <div className="with-sidebar with-sidebar--data-wider">
       <Sidebar
         toggleAriaLabelExpanded="Collapse data sidebar"
         toggleAriaLabelCollapsed="Expand data sidebar"
@@ -136,7 +136,7 @@ function DataPageInner() {
                         {r.fileName}
                       </span>
                       <span className="data-csv-item__date">
-                        {formatUploadDate(r.uploadedAt)}
+                        Uploaded: {formatUploadDate(r.uploadedAt)}
                       </span>
                     </button>
                   </li>

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-PPStats is a lightweight desktop application for uploading, managing, and visualizing statistics from CSV files exported from a database. The app is built for a single non-technical user and prioritizes simplicity, reliability, and a clean UI over complexity.
+PPStats is a lightweight desktop application for uploading, managing, and analyzing statistics from CSV files exported from a database. It is aimed at a single non-technical operator and favors simplicity and predictable behavior over feature sprawl.
 
 ## Stack
 
@@ -28,14 +28,15 @@ The app uses no database. CSV files are stored as raw files in the Tauri app dat
 
 ## Packaging & Distribution
 
-This app is packaged for macOS as an **unsigned DMG** and published via **GitHub Releases** using the **Release macOS DMG** workflow (`workflow_dispatch`, branch dropdown + version input → tag `v…`, fixed release title in YAML). Only **allowlisted GitHub logins** may run it (see `check-allowed-actor` in that workflow). Local parity: `./buildmac.sh`.
+Built for macOS as an **unsigned DMG**, published via **GitHub Releases** (**Release macOS DMG** workflow: `workflow_dispatch`, branch/tag + semver version → `v…` tag; only **allowlisted** actors via `check-allowed-actor` in `.github/workflows/release-mac-dmg.yml`). Local parity: `./buildmac.sh`.
 
-This app will be packaged for macOS and distributed via GitHub Releases as a `.dmg` file. All code changes should be made with this end goal in mind:
+Runtime and packaging constraints:
 
-- Do not rely on any local development tooling or environment-specific paths at runtime
-- Use Tauri's built-in path APIs (`appDataDir()` etc.) rather than hardcoded paths so they resolve correctly in a compiled, installed app
-- Avoid any dependencies or patterns that work in `tauri dev` but break in a production build
-- The app is not signed with an Apple Developer certificate — users will need to right-click → Open on first launch to bypass Gatekeeper
+- No reliance on developer-only tooling or environment-specific paths
+- Use Tauri path helpers (`appDataDir()`, etc.), not hardcoded OS paths
+- Avoid patterns that work in dev but fail in release builds
+
+The build is **not** Apple-developer-signed; first launch typically requires overriding Gatekeeper (see README).
 
 ## Stats pipeline (`src/calculations`)
 
@@ -43,34 +44,33 @@ Statistics are **pure TypeScript**: no second CSV parse in the stats layer. The 
 
 ### Layout
 
-| File | Role |
+| File / folder | Role |
 | --- | --- |
-| `fields.ts` | Single source of truth for **exact CSV header strings** (`FIELDS.*`). Stats and any row logic must use these constants—do not duplicate raw header names across the codebase. |
-| `stats.ts` | **`STATS`**: array of `StatConfig` (id, label, `requiredFields`, optional `requiredNonEmptyFields`, `calculate`). Each stat’s `calculate(mergedRows)` receives **all merged rows** from qualifying files as `Record<string, string>[]` (cells are strings; cast inside the calculator as needed). |
-| `pipeline.ts` | **`runStats`**: for each stat, keeps only CSVs whose first row’s keys include every `requiredFields` header; drops rows missing any `requiredNonEmptyFields` (defaults to all of `requiredFields` if omitted); **concatenates** surviving rows from contributing files; calls `calculate`. Returns `StatRunResult[]` (`statId`, `label`, `result`, `contributingFiles`). Also **`buildCsvInputsFromDatasets`** / **`rowsToStringRecords`** to bridge `CsvDataContext` datasets into `CsvInput[]`. |
-| `avgTotalImprovement.ts` (and future `*.ts`) | **Implementations** for specific metrics. Keep them testable and free of React; import `FIELDS` and export functions used by `stats.ts`. |
+| `fields.ts` | Single source of truth for **exact CSV header strings** (`FIELDS.*`). |
+| `stats/types.ts`, `stats/registry.ts`, `stats/index.ts` | **`STATS`**: `StatConfig[]` (id, label, `requiredFields`, optional `requiredNonEmptyFields`, **`calculate(ctx)`**). Each `calculate` receives **`StudentAnalyticsContext`** from **`buildStudentTestAnalytics(merged)`** (not raw rows). Returns **`{ summary, data }`**. |
+| `functions/buildContext.ts` | **`buildStudentTestAnalytics`**: one pass → rollups + per-(student, test type) blocks (baseline, latest, improvements, progression, tutoring, remote, prep weeks, etc.). |
+| `functions/derive*.ts` | Pure **derive** functions: `context → { summary, data }`. Add new metrics here; wire in `stats/registry.ts`. |
+| `pipeline.ts` | Merge/filter rows; **group** stats by field signature; for each group build **one** context, run each job; returns **`StatRunResult[]`** (`statId`, `label`, **`summary`**, **`data`**, `contributingFiles`). **`buildCsvInputsFromDatasets`** / **`rowsToStringRecords`**. |
+| **`CALCULATIONS.md`** | Human index of all stat jobs, shared context rules, and relationships. |
 
 ### `StatConfig` rules
 
 - **`requiredFields`**: column headers that must **exist** on a file for it to participate. Used for `csvHasAllColumns`.
-- **`requiredNonEmptyFields`**: per row, every listed header must be **non-empty** after trim for the row to be kept. Use this when some columns are legitimately blank on many rows (e.g. `BASELINE` only on baseline rows). If omitted, every `requiredFields` column must be non-empty on each row—too strict for baseline-style stats.
-- **`id`**: stable string key for UI maps and future aggregated result objects; must stay unique per job.
+- **`requiredNonEmptyFields`**: per row, every listed header must be **non-empty** after trim for the row to be kept. If omitted, every `requiredFields` column must be non-empty on each row.
+- **`calculate(ctx)`**: must not re-derive baseline/latest; read **`ctx.blocks`** / **`ctx.rollups`**.
+- **`id`**: stable string key for UI maps; must stay unique per job.
 
-### Contexts that wire the pipeline
+### Contexts that feed the pipeline
 
 Provider order in `App.tsx` matters:
 
-1. **`CsvLibraryProvider`** — list of uploaded CSVs (`metadata.json` + disk names).
-2. **`CsvDataProvider`** — lazy-loads parsed **`datasets`**: `fileName` → `{ rows, fields, parseErrors }`. Stats must read from here, not re-read disk in the calculation path.
-3. **`DataPageProvider`** / **`StatsPageProvider`** — **above the router** so Data/Stats page state survives route changes.
+1. **`CsvLibraryProvider`** — authoritative list of persisted CSVs (`metadata.json` + disk names).
+2. **`CsvDataProvider`** — lazy-loads **`datasets`**: `fileName` → `{ rows, fields, parseErrors }`. The calculation path consumes this; it does **not** re-read CSV bytes from disk.
+3. **`DataPageProvider`** / **`StatsPageProvider`** — scoped **above** the router so route changes do not drop page-local state tied to CSV/stats flows.
 
-**`StatsPageContext`** (`StatsPageContext.tsx`):
+**`StatsPageContext`** (`StatsPageContext.tsx`) drives **`runStats`**: it resolves which library files participate, ensures their **`datasets`** are loaded, optionally passes **`includeStudentKeys`** after merge/non-empty filtering to restrict the cohort, and stores **`statResultsById`** / **`statsAnalyticsMeta`** on success. **`includeStudentKeys`** is omitted or empty-sized to retain all merged students; overlapping async runs are invalidated with a generation counter. **`studentsInSelectedCsvs`** / **`calculationStudents`** derive from the active file set and the last successful cohort, respectively—used so selection state stays aligned with persisted files and merged keys.
 
-- Sidebar **selection** (which files to include) is trimmed when a file disappears from the library (checkbox state only).
-- **`lastCalculated`** and **`statResultsById`** are **immutable snapshots** from the last **Calculate** click: they are **not** cleared or rewritten when those files are later deleted, renamed, or missing from the library. Do not add effects that “sync” or invalidate them from `rows`.
-- **`runCalculate`** builds `CsvInput[]` via `buildCsvInputsFromDatasets(selectedOrder, datasets)`, then `runStats(inputs, STATS)` and stores results in a `Map` keyed by `statId`.
-
-When adding a new statistic: add `FIELDS` if new columns are needed, implement logic in a dedicated module, append a `StatConfig` to `STATS`, and surface the string (or structured result later) on the Stats page using `statId` as the key.
+When adding a new statistic: extend **`buildContext`** if new per-block or rollup fields are needed; add a derive under **`functions/`**; register in **`stats/registry.ts`**; update **`CALCULATIONS.md`**. Each **`StatRunResult`** includes **`statId`**, **`label`**, **`summary`**, **`data`**, and **`contributingFiles`**.
 
 ## Development
 

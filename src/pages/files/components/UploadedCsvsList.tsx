@@ -117,7 +117,7 @@ export default function UploadedCsvsList() {
                   <>
                     <span className="csv-row__title">{r.displayName}</span>
                     <span className="csv-row__meta">
-                      {formatUploadDateTimeEst(r.uploadedAt)} ·{" "}
+                      Uploaded: {formatUploadDateTimeEst(r.uploadedAt)} ·{" "}
                       <span className="csv-row__filename" title="Name on disk">
                         {r.fileName}
                       </span>
