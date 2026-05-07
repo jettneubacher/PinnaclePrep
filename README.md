@@ -2,6 +2,8 @@
 
 ## Downloading
 
+[TUTORIAL VIDEO: HOW TO DOWNLOAD](https://youtu.be/VYGNNecXKII)
+
 1. Open the repo’s **Releases** page on GitHub and download the latest **`.dmg`** (asset attached to the release).
 2. Open the DMG, drag **ppstats** (or the app name shown) into **Applications**.
 3. **First launch (unsigned build):** browsers tag the app with **quarantine**. macOS may say the app is **“damaged”** and tell you to move it to Trash—that usually means **Gatekeeper + quarantine**, not a bad file. On many Macs, **Right‑click → Open** or **System Settings → Privacy & Security → Open Anyway** (after a failed launch) is enough; on others **neither appears**, and the only reliable workaround is to clear quarantine yourself (see below). The proper long‑term fix is **Apple Developer ID signing + notarization** (not set up for this project yet).
