@@ -25,6 +25,7 @@ The app uses no database. CSV files are stored as raw files in the Tauri app dat
 - The user may manually delete or rename CSVs through the app UI
 - On every app launch, all previously uploaded CSVs are loaded from app data and available immediately
 - Because the source database schema may change over time (columns added, renamed, removed), CSVs are stored and read as raw files — there is no rigid schema or database layer that would require migrations
+- On parse, **`parseStoredCsv.ts`** trims leading all-blank rows/columns (common DB export padding) before header detection; stored files on disk are never modified
 
 ## Packaging & Distribution
 
