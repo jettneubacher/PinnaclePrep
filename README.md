@@ -18,7 +18,7 @@
 
 ## Updating
 
-[TUTORIAL VIDEO: HOW TO UPDATE](jettneubacher.com)
+[TUTORIAL VIDEO: HOW TO UPDATE](https://youtu.be/r_ax8gAydfE)
 
 1. Open the repo's **Releases** page on GitHub and download the latest **`.dmg`** (asset attached to the release).
 2. Open the DMG, drag **ppstats** (or the app name shown) into **Applications**. When prompted, select to **REPLACE** the existing app.
